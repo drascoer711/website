@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Server Verification</title>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: Arial, sans-serif; text-align: center; padding-top: 100px; }
+        .box { background: #1e1e1e; padding: 40px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        button { background: #5865F2; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 20px; }
+        button:hover { background: #4752C4; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>🔒 Account Verification</h2>
+        <p id="status">Verifying your session...</p>
+        <button id="verifyBtn" style="display:none;" onclick="completeVerification()">Authorize Connection</button>
+    </div>
+
+    <script>
+        // Grabs the user ID passed from the bot link automatically
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user_id');
+
+        if (userId) {
+            document.getElementById('status').innerText = `Ready to verify user ID: ${userId}`;
+            document.getElementById('verifyBtn').style.display = 'inline-block';
+        } else {
+            document.getElementById('status').innerText = 'Invalid or missing user session.';
+        }
+
+        function completeVerification() {
+            alert('Verification sequence completed successfully! You can close this window.');
+            window.close();
+        }
+    </script>
+</body>
+</html>
