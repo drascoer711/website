@@ -1,38 +1,100 @@
+from flask import render_template_string
+
+# Add this updated callback route to your Flask app
+@app.route('/callback')
+def oauth_callback():
+    code = request.args.get('code')
+    if not code:
+        return "Authorization code missing.", 400
+
+    token_url = "https://discord.com/api/oauth2/token"
+    data = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    
+    resp = requests.post(token_url, data=data, headers=headers)
+    if resp.status_code != 200:
+        return f"Failed to fetch token: {resp.text}", 400
+        
+    access_token = resp.json().get("access_token")
+
+    # Fetch user info
+    user_resp = requests.get(
+        "https://discord.com/api/users/@me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    user_data = user_resp.json() if user_resp.status_code == 200 else {}
+
+    # Fetch user guilds
+    guilds_resp = requests.get(
+        "https://discord.com/api/users/@me/guilds",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    user_guilds = guilds_resp.json() if guilds_resp.status_code == 200 else []
+
+    return render_template_string(DASHBOARD_HTML, user=user_data, guilds=user_guilds)
+
+
+# Styled HTML & Tailwind CSS Template
+DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Server Verification</title>
-    <style>
-        body { background-color: #121212; color: #ffffff; font-family: Arial, sans-serif; text-align: center; padding-top: 100px; }
-        .box { background: #1e1e1e; padding: 40px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        button { background: #5865F2; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 20px; }
-        button:hover { background: #4752C4; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Telemetry Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body>
-    <div class="box">
-        <h2>🔒 Account Verification</h2>
-        <p id="status">Verifying your session...</p>
-        <button id="verifyBtn" style="display:none;" onclick="completeVerification()">Authorize Connection</button>
+<body class="bg-[#313338] text-[#dbdee1] min-h-screen font-sans p-6">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="bg-[#2b2d31] p-6 rounded-xl shadow-lg flex items-center justify-between mb-8 border border-[#3f4147]">
+            <div class="flex items-center space-x-4">
+                {% if user.get('avatar') %}
+                <img src="https://cdn.discordapp.com/avatars/{{ user.get('id') }}/{{ user.get('avatar') }}.png" alt="Avatar" class="w-16 h-16 rounded-full border-2 border-[#5865F2]">
+                {% else %}
+                <div class="w-16 h-16 rounded-full bg-[#5865F2] flex items-center justify-center text-white text-xl font-bold">
+                    {{ user.get('username', 'U')[0] }}
+                </div>
+                {% endif %}
+                <div>
+                    <h1 class="text-2xl font-bold text-white">{{ user.get('global_name') or user.get('username') }}</h1>
+                    <p class="text-sm text-[#949ba4]">@{{ user.get('username') }}</p>
+                </div>
+            </div>
+            <div class="bg-[#1e1f22] px-4 py-2 rounded-lg border border-[#3f4147] text-sm">
+                <span class="text-[#57F287] font-semibold">● Verified Secure</span>
+            </div>
+        </div>
+
+        <!-- Servers Grid Section -->
+        <h2 class="text-xl font-bold text-white mb-4">Connected Server Footprint ({{ guilds|length }})</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for guild in guilds %}
+            <div class="bg-[#2b2d31] p-4 rounded-lg border border-[#3f4147] flex items-center space-x-4 shadow-md hover:border-[#5865F2] transition">
+                {% if guild.get('icon') %}
+                <img src="https://cdn.discordapp.com/icons/{{ guild.get('id') }}/{{ guild.get('icon') }}.png" alt="Server Icon" class="w-12 h-12 rounded-full">
+                {% else %}
+                <div class="w-12 h-12 rounded-full bg-[#1e1f22] flex items-center justify-center text-white text-xs font-bold text-center p-1">
+                    {{ guild.get('name')[:3] }}
+                </div>
+                {% endif %}
+                <div class="overflow-hidden">
+                    <h3 class="font-bold text-white truncate">{{ guild.get('name') }}</h3>
+                    <p class="text-xs text-[#949ba4]">ID: {{ guild.get('id') }}</p>
+                    {% if guild.get('owner') %}
+                    <span class="inline-block mt-1 text-[10px] bg-[#5865F2]/20 text-[#5865F2] px-2 py-0.5 rounded font-semibold">Server Owner</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
-
-    <script>
-        // Grabs the user ID passed from the bot link automatically
-        const urlParams = new URLSearchParams(window.location.search);
-        const userId = urlParams.get('user_id');
-
-        if (userId) {
-            document.getElementById('status').innerText = `Ready to verify user ID: ${userId}`;
-            document.getElementById('verifyBtn').style.display = 'inline-block';
-        } else {
-            document.getElementById('status').innerText = 'Invalid or missing user session.';
-        }
-
-        function completeVerification() {
-            alert('Verification sequence completed successfully! You can close this window.');
-            window.close();
-        }
-    </script>
 </body>
 </html>
+"""
